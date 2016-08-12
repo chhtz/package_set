@@ -22,14 +22,20 @@ module Rock
                 package_name = args.first
 
                 manifest = ::Autoproj.manifest
-                package_set =
-                    if manifest.package(package_name)
-                        manifest.definition_package_set(package_name)
-                    else 
-                        ::Autoproj.current_package_set
+                package_set = ::Autoproj.current_package_set
+                if ::Autoproj.respond_to?(:workspace) # autoproj v2
+                    if existing_package = manifest.find_package_definition(package_name)
+                        package_set = existing_package.package_set
                     end
-                vcs = manifest.importer_definition_for(package_name, package_set)
-                if (!vcs)
+                    vcs = manifest.importer_definition_for(package_name, package_set: package_set, require_existing: false)
+                else
+                    if existing_package = manifest.find_package(package_name)
+                        package_set = existing_package.package_set
+                    end
+                    vcs = manifest.importer_definition_for(package_name, package_set)
+                end
+
+                if !vcs
                     ::Kernel.raise ::ArgumentError, "#{package_name} has no version control definition in #{::File.join(package_set.local_dir, 'source.yml')}"
                 end
 

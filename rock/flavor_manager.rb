@@ -49,7 +49,11 @@ module Rock
             end
 
             if flavor_def.implicit?
-                pkg_set = Autoproj.manifest.definition_source(pkg)
+                if Autoproj.respond_to?(:workspace) # 2.0
+                    pkg_set = Autoproj.manifest.find_package_definition(pkg).package_set
+                else
+                    pkg_set = Autoproj.manifest.find_package(pkg).package_set
+                end
                 if package_sets.include?(pkg_set)
                     !flavor_def.removed?(pkg)
                 else
@@ -235,8 +239,16 @@ module Rock
                     # entries apply)
                     vcs = pkg_def.vcs.raw.group_by(&:first)
                     branch_should_be_flavor_name = vcs.any? do |_, info|
-                        !info.empty? &&
-                            info.all? { |_, vcs_options| vcs_options['branch'] && vcs_options['branch'] =~ /ROCK_FLAVOR|ROCK_BRANCH/ }
+                        if !info.empty?
+                            info.all? do |entry|
+                                if entry.kind_of?(Array)
+                                    vcs_options = entry[1]
+                                else
+                                    vcs_options = entry.vcs
+                                end
+                                vcs_options['branch'] && vcs_options['branch'] =~ /ROCK_FLAVOR|ROCK_BRANCH/
+                            end
+                        end
                     end
                     if branch_should_be_flavor_name
                         wrong_branch << pkg
